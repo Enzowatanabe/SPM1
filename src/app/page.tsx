@@ -1,103 +1,152 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import './styles.css'; // ou './globals.css'
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { FaHome, FaFileAlt, FaCalendarAlt, FaMoneyBill, FaUserFriends, FaUserTie, FaCog } from "react-icons/fa"; // FaUserTie para Funcionários
+import React, { useEffect, useState } from "react";
+
+type Conta = {
+  id: number;
+  conta: string;
+  descricao: string;
+  valor: string;
+  vencimento: string;
+  dataPagamento: string;
+  status: 'A PAGAR' | 'PAGA' | 'VENCIDA';
+};
+
+export default function Dashboard() {
+  const pathname = usePathname();
+
+  const [vencidas, setVencidas] = useState<Conta[]>([]);
+  const [hoje, setHoje] = useState<Conta[]>([]);
+
+  useEffect(() => {
+    const contas: Conta[] = JSON.parse(localStorage.getItem("contasapagar") || "[]");
+    const hojeStr = new Date().toISOString().slice(0, 10);
+
+    setVencidas(contas.filter(
+      c => (c.status === "A PAGAR" || c.status === "VENCIDA") && c.vencimento < hojeStr
+    ));
+    setHoje(contas.filter(
+      c => c.status === "A PAGAR" && c.vencimento === hojeStr
+    ));
+  }, []);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="dashboard-container">
+      <aside className="sidebar">
+        <div className="logo">
+          <img src="/logo-marcenaria.jpg" alt="Logo Ponto Móvel" width="160" />
+          <span>PONTO MÓVEL<br />MARCENARIA</span>
+        </div>
+        <nav className="menu">
+          <Link href="/" className={`menu-btn${pathname === "/" ? " active" : ""}`}>
+            <FaHome /> Dashboard
+          </Link>
+          <Link href="/orcamentos" className={`menu-btn${pathname.startsWith("/orcamentos") ? " active" : ""}`}>
+            <FaFileAlt /> Orçamentos
+          </Link>
+          <Link href="/financeiro" className={`menu-btn${pathname.startsWith("/financeiro") ? " active" : ""}`}>
+            <FaMoneyBill /> Financeiro
+          </Link>
+          <Link href="/agenda" className={`menu-btn${pathname.startsWith("/agenda") ? " active" : ""}`}>
+            <FaCalendarAlt /> Agenda
+          </Link>
+          <Link href="/documentos" className={`menu-btn${pathname.startsWith("/documentos") ? " active" : ""}`}>
+            <FaFileAlt /> Documentos
+          </Link>
+          <Link href="/clientes" className={`menu-btn${pathname.startsWith("/clientes") ? " active" : ""}`}>
+            <FaUserFriends /> Clientes e Fornecedores
+          </Link>
+          {/* Funcionários */}
+          <Link href="/funcionarios" className={`menu-btn${pathname.startsWith("/funcionarios") ? " active" : ""}`}>
+            <FaUserTie /> Funcionários
+          </Link>
+        </nav>
+        <div className="menu-bottom">
+          <FaCog /> Config
+        </div>
+      </aside>
+      <main className="main-content">
+        <h1 style={{ fontSize: 38, fontWeight: 600, marginBottom: 32 }}>Dashboard</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        {/* ALERTAS DE CONTAS */}
+        {(hoje.length > 0 || vencidas.length > 0) && (
+          <div style={{ marginBottom: 20 }}>
+            {hoje.length > 0 && (
+              <div style={{
+                background: "#fffbe7",
+                color: "#654400",
+                padding: 16,
+                borderRadius: 7,
+                marginBottom: 8,
+                border: "1px solid #f5e1a7"
+              }}>
+                <b>Contas para pagar hoje:</b>
+                <ul style={{ margin: "8px 0 0 0", paddingLeft: 24 }}>
+                  {hoje.map(c => (
+                    <li key={c.id}>
+                      {c.conta} – {c.descricao} (R$ {Number(c.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {vencidas.length > 0 && (
+              <div style={{
+                background: "#ffe4e6",
+                color: "#b4002e",
+                padding: 16,
+                borderRadius: 7,
+                marginBottom: 8,
+                border: "1px solid #fac3c8"
+              }}>
+                <b>Contas vencidas:</b>
+                <ul style={{ margin: "8px 0 0 0", paddingLeft: 24 }}>
+                  {vencidas.map(c => (
+                    <li key={c.id}>
+                      {c.conta} – {c.descricao} (R$ {Number(c.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Seus cards de resumo */}
+        <div className="cards-row">
+          <div className="card">
+            <div className="card-label">Saldo Atual</div>
+            <div className="card-value">R$ 50.000,00</div>
+          </div>
+          <div className="card">
+            <div className="card-label">Entradas do Mês</div>
+            <div className="card-value">R$ 25.000,00</div>
+          </div>
+          <div className="card">
+            <div className="card-label">Saídas do Mês</div>
+            <div className="card-value">R$ 20.000,00</div>
+          </div>
+        </div>
+        <div className="cards-row">
+          <div className="card">
+            <div className="card-label">Orçamentos Abertos</div>
+            <div className="card-number">5</div>
+          </div>
+          <div className="card">
+            <div className="card-label">Contas a Pagar</div>
+            <div className="card-number">5</div>
+          </div>
+        </div>
+        <div className="buttons-row">
+          <button className="btn">Ver Agenda</button>
+          <button className="btn">Ver Orçamentos</button>
+          <button className="btn">Ver Financeiro</button>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }

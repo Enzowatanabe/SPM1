@@ -1,0 +1,16 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Orcamento {
+  id       Int    @id @default(autoincrement())
+  cliente  String
+  projeto  String
+  valor    Float
+  data     String
+}
