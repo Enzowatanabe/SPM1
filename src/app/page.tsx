@@ -17,7 +17,7 @@ type Conta = {
 };
 
 export default function Dashboard() {
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
 
   const [vencidas, setVencidas] = useState<Conta[]>([]);
   const [hoje, setHoje] = useState<Conta[]>([]);

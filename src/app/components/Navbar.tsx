@@ -15,7 +15,7 @@ const links = [
 ];
 
 export default function Navbar() {
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const [dropdownOpen, setDropdownOpen] = useState<false | 'clientes' | 'financeiro'>(false);
 
   // Fecha dropdown ao clicar fora

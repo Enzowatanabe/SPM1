@@ -35,7 +35,7 @@ export default function ContasAPagar() {
     const hoje = new Date().toISOString().slice(0, 10);
     const atualizadas = contas.map(c =>
       c.status === 'A PAGAR' && c.vencimento < hoje
-        ? { ...c, status: 'VENCIDA' }
+        ? { ...c, status: 'VENCIDA' as const }
         : c
     );
     if (JSON.stringify(atualizadas) !== JSON.stringify(contas)) {
