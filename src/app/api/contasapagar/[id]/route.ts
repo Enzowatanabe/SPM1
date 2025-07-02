@@ -3,9 +3,10 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest) {
   try {
-    const id = Number(params.id);
+    const { pathname } = req.nextUrl;
+    const id = Number(pathname.split('/').pop());
     const data = await req.json();
     const conta = await prisma.contaAPagar.update({
       where: { id },
@@ -17,9 +18,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest) {
   try {
-    const id = Number(params.id);
+    const { pathname } = req.nextUrl;
+    const id = Number(pathname.split('/').pop());
     await prisma.contaAPagar.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (error) {
