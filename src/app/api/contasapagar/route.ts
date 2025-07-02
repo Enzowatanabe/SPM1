@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 export async function GET() {
   try {
-    const contas = await prisma.contaAPagar.findMany({ orderBy: { vencimento: 'asc' } });
+    const contas = await prisma.ContaAPagar.findMany({ orderBy: { vencimento: 'asc' } });
     return NextResponse.json(contas);
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao buscar contas.' }, { status: 500 });
@@ -15,7 +15,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
-    const novaConta = await prisma.contaAPagar.create({ data });
+    const novaConta = await prisma.ContaAPagar.create({ data });
     return NextResponse.json(novaConta, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao criar conta.' }, { status: 500 });
