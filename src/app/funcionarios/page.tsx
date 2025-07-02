@@ -204,12 +204,12 @@ export default function Funcionarios() {
                 <td style={thtd}>{f.status}</td>
                 <td style={thtd}>{f.observacoes}</td>
                 <td style={thtd}>
-                  {registrando[f.id] ? (
+                  {f.id !== undefined && registrando[f.id] ? (
                     <span>
                       <input
                         type="date"
                         value={pagamento[f.id]?.data || ""}
-                        onChange={e => alterarPagamento(f.id, "data", e.target.value)}
+                        onChange={e => alterarPagamento(f.id!, "data", e.target.value)}
                         style={{ ...inputStyle, width: 120, marginBottom: 2 }}
                         required
                       />
@@ -217,25 +217,25 @@ export default function Funcionarios() {
                         type="number"
                         placeholder="Valor"
                         value={pagamento[f.id]?.valor || ""}
-                        onChange={e => alterarPagamento(f.id, "valor", e.target.value)}
+                        onChange={e => alterarPagamento(f.id!, "valor", e.target.value)}
                         style={{ ...inputStyle, width: 90, marginBottom: 2 }}
                         required
                       />
                       <input
                         placeholder="Obs."
                         value={pagamento[f.id]?.observacao || ""}
-                        onChange={e => alterarPagamento(f.id, "observacao", e.target.value)}
+                        onChange={e => alterarPagamento(f.id!, "observacao", e.target.value)}
                         style={{ ...inputStyle, width: 110, marginBottom: 2 }}
                       />
                       <button
-                        onClick={() => registrarPagamento(f.id)}
+                        onClick={() => registrarPagamento(f.id!)}
                         style={{ ...inputStyle, minWidth: 80, background: "#3182ce", color: "#fff", fontWeight: 500 }}
                         type="button"
                       >
                         Salvar
                       </button>
                       <button
-                        onClick={() => cancelarRegistroPagamento(f.id)}
+                        onClick={() => cancelarRegistroPagamento(f.id!)}
                         style={{ ...inputStyle, minWidth: 80, background: "#eee", color: "#222" }}
                         type="button"
                       >
@@ -244,7 +244,7 @@ export default function Funcionarios() {
                     </span>
                   ) : (
                     <button
-                      onClick={() => iniciarRegistroPagamento(f.id)}
+                      onClick={() => f.id !== undefined && iniciarRegistroPagamento(f.id)}
                       style={{ ...inputStyle, minWidth: 80, background: "#eee", color: "#333" }}
                       type="button"
                     >
