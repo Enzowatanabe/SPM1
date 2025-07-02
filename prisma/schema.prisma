@@ -14,3 +14,53 @@ model Orcamento {
   valor    Float
   data     String
 }
+
+model ContaAPagar {
+  id             Int      @id @default(autoincrement())
+  conta          String
+  descricao      String?
+  valor          String
+  vencimento     String
+  dataPagamento  String?
+  status         String   @default("A PAGAR")
+  createdAt      DateTime @default(now())
+}
+
+model Funcionario {
+  id              Int      @id @default(autoincrement())
+  nome            String
+  cargo           String
+  email           String?
+  telefone        String?
+  cpf             String?
+  rg              String?
+  dataNascimento  String?
+  dataContratacao String?
+  status          String   @default("Ativo")
+  observacoes     String?
+  pagamentos      String   @default("[]") // JSON string
+  createdAt       DateTime @default(now())
+}
+
+model Cliente {
+  id          Int      @id @default(autoincrement())
+  nome        String
+  email       String?
+  telefone    String?
+  cpfCnpj     String?
+  endereco    String?
+  observacoes String?
+  createdAt   DateTime @default(now())
+}
+
+model Lancamento {
+  id              Int      @id @default(autoincrement())
+  transacao       String
+  categoria       String
+  descricao       String?
+  data            String
+  valor           Float
+  formaPagamento  String?
+  banco           String?
+  createdAt       DateTime @default(now())
+}

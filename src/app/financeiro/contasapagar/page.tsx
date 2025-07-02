@@ -24,7 +24,7 @@ export default function ContasAPagar() {
     status: 'A PAGAR' as 'A PAGAR' | 'PAGA' | 'VENCIDA',
   });
 
-  // Carrega contas do localStorage
+  // Carrega contas do localStorage (compatível com Netlify)
   useEffect(() => {
     const salvo = localStorage.getItem('contasapagar');
     if (salvo) setContas(JSON.parse(salvo));

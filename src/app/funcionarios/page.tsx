@@ -42,7 +42,7 @@ export default function Funcionarios() {
   const [pagamento, setPagamento] = useState<{ [id: number]: Pagamento }>({});
   const [registrando, setRegistrando] = useState<{ [id: number]: boolean }>({});
 
-  // Carregar funcionários apenas 1x ao montar o componente
+  // Carregar funcionários do localStorage (compatível com Netlify)
   useEffect(() => {
     const dados = localStorage.getItem("funcionarios");
     if (dados) setFuncionarios(JSON.parse(dados));
