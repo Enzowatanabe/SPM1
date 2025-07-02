@@ -1,9 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { db, ContaAPagar, migrarDoLocalStorage } from '@/lib/database';
 
-type Conta = ContaAPagar;
+// Tipos
+export type Conta = {
+  id?: number;
+  conta: string;
+  descricao?: string;
+  valor: string;
+  vencimento: string;
+  dataPagamento?: string;
+  status: 'A PAGAR' | 'PAGA' | 'VENCIDA';
+  createdAt?: string;
+};
 
 export default function ContasAPagar() {
   const [contas, setContas] = useState<Conta[]>([]);
@@ -16,45 +25,34 @@ export default function ContasAPagar() {
     dataPagamento: '',
     status: 'A PAGAR' as 'A PAGAR' | 'PAGA' | 'VENCIDA',
   });
+  const [loading, setLoading] = useState(false);
 
-  // Carrega contas do IndexedDB
-  useEffect(() => {
-    async function carregarContas() {
-      try {
-        // Migrar dados do localStorage se existirem
-        await migrarDoLocalStorage();
-        
-        // Carregar do IndexedDB
-        const contas = await db.contasAPagar.orderBy('vencimento').toArray();
-        setContas(contas);
-      } catch (error) {
-        console.error('Erro ao carregar contas:', error);
-      }
+  // Carrega contas do backend
+  async function carregarContas() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/contasapagar');
+      const data = await res.json();
+      setContas(data);
+    } catch (error) {
+      alert('Erro ao carregar contas.');
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     carregarContas();
   }, []);
 
   // Atualiza vencidas automaticamente
   useEffect(() => {
     const hoje = new Date().toISOString().slice(0, 10);
-    const atualizadas = contas.map(c =>
-      c.status === 'A PAGAR' && c.vencimento < hoje
-        ? { ...c, status: 'VENCIDA' as const }
-        : c
-    );
-    if (JSON.stringify(atualizadas) !== JSON.stringify(contas)) {
-      setContas(atualizadas);
-      // Salvar no IndexedDB
-      atualizadas.forEach(async (conta) => {
-        if (conta.id && conta.status === 'VENCIDA') {
-          try {
-            await db.contasAPagar.update(conta.id, { status: 'VENCIDA' });
-          } catch (error) {
-            console.error('Erro ao atualizar conta:', error);
-          }
-        }
-      });
-    }
+    contas.forEach(async (c) => {
+      if (c.status === 'A PAGAR' && c.vencimento < hoje) {
+        await atualizarStatus(c.id!, 'VENCIDA');
+      }
+    });
     // eslint-disable-next-line
   }, [contas.length]);
 
@@ -65,11 +63,11 @@ export default function ContasAPagar() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.conta || !form.valor || !form.vencimento) {
-      alert("Preencha os campos obrigatórios!");
+      alert('Preencha os campos obrigatórios!');
       return;
     }
-    if (form.status === "PAGA" && !form.dataPagamento) {
-      alert("Preencha a data de pagamento!");
+    if (form.status === 'PAGA' && !form.dataPagamento) {
+      alert('Preencha a data de pagamento!');
       return;
     }
     const novaConta: Conta = {
@@ -77,70 +75,66 @@ export default function ContasAPagar() {
       descricao: form.descricao,
       valor: form.valor,
       vencimento: form.vencimento,
-      dataPagamento: form.status === "PAGA" ? form.dataPagamento : "",
+      dataPagamento: form.status === 'PAGA' ? form.dataPagamento : '',
       status: form.status,
-      createdAt: new Date()
     };
-    
     try {
-      const id = await db.contasAPagar.add(novaConta);
-      const contaSalva = { ...novaConta, id };
-      setContas(prev => [...prev, contaSalva]);
+      setLoading(true);
+      const res = await fetch('/api/contasapagar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(novaConta),
+      });
+      if (!res.ok) throw new Error();
+      await carregarContas();
       setForm({
         conta: '',
         descricao: '',
         valor: '',
         vencimento: '',
         dataPagamento: '',
-        status: 'A PAGAR'
+        status: 'A PAGAR',
       });
     } catch (error) {
-      console.error('Erro ao salvar conta:', error);
       alert('Erro ao salvar conta. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   }
 
   async function atualizarStatus(id: number, novo: Conta['status']) {
     try {
-      await db.contasAPagar.update(id, {
-        status: novo,
-        dataPagamento: novo === 'PAGA' ? new Date().toISOString().slice(0, 10) : ''
+      setLoading(true);
+      const res = await fetch(`/api/contasapagar/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: novo, dataPagamento: novo === 'PAGA' ? new Date().toISOString().slice(0, 10) : '' }),
       });
-      
-      const listaNova = contas.map(c =>
-        c.id === id
-          ? {
-              ...c,
-              status: novo,
-              dataPagamento:
-                novo === 'PAGA'
-                  ? c.dataPagamento || new Date().toISOString().slice(0, 10)
-                  : ''
-            }
-          : c
-      );
-      setContas(listaNova);
+      if (!res.ok) throw new Error();
+      await carregarContas();
     } catch (error) {
-      console.error('Erro ao atualizar status:', error);
       alert('Erro ao atualizar status. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   }
 
   async function excluirConta(id: number) {
-    if (!window.confirm("Excluir essa conta?")) return;
-    
+    if (!window.confirm('Excluir essa conta?')) return;
     try {
-      await db.contasAPagar.delete(id);
-      const listaNova = contas.filter(c => c.id !== id);
-      setContas(listaNova);
+      setLoading(true);
+      const res = await fetch(`/api/contasapagar/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      await carregarContas();
     } catch (error) {
-      console.error('Erro ao excluir conta:', error);
       alert('Erro ao excluir conta. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   }
 
   // Filtro
-  const contasFiltradas = contas.filter(c => filtro === 'TODAS' ? true : c.status === filtro);
+  const contasFiltradas = contas.filter((c) => (filtro === 'TODAS' ? true : c.status === filtro));
 
   // Destaques
   function getRowStyle(status: string) {
@@ -151,8 +145,8 @@ export default function ContasAPagar() {
 
   // Função para formatar a data no formato brasileiro sem problemas de timezone
   function formatarDataBR(data: string) {
-    if (!data) return "";
-    const [ano, mes, dia] = data.split("-");
+    if (!data) return '';
+    const [ano, mes, dia] = data.split('-');
     return `${dia}/${mes}/${ano}`;
   }
 
@@ -205,7 +199,7 @@ export default function ContasAPagar() {
           <option value="PAGA">PAGA</option>
           <option value="VENCIDA">VENCIDA</option>
         </select>
-        {form.status === "PAGA" && (
+        {form.status === 'PAGA' && (
           <input
             name="dataPagamento"
             type="date"
@@ -225,19 +219,20 @@ export default function ContasAPagar() {
             border: 'none',
             borderRadius: 6,
             padding: '8px 18px',
-            cursor: 'pointer'
+            cursor: 'pointer',
           }}
+          disabled={loading}
         >
-          Cadastrar Conta
+          {loading ? 'Salvando...' : 'Cadastrar Conta'}
         </button>
       </form>
       {/* Filtro */}
       <div style={{ marginBottom: 13 }}>
         <b>Filtrar por status:</b>
-        <button onClick={() => setFiltro('TODAS')} style={{ marginLeft: 9, marginRight: 2, background: filtro === 'TODAS' ? "#e7f2ff" : "#eee", border: "none", borderRadius: 5, padding: "4px 13px", cursor: "pointer", fontWeight: filtro === 'TODAS' ? 600 : 400 }}>Todas</button>
-        <button onClick={() => setFiltro('A PAGAR')} style={{ marginRight: 2, background: filtro === 'A PAGAR' ? "#fffbe7" : "#eee", border: "none", borderRadius: 5, padding: "4px 13px", cursor: "pointer", fontWeight: filtro === 'A PAGAR' ? 600 : 400 }}>A Pagar</button>
-        <button onClick={() => setFiltro('PAGA')} style={{ marginRight: 2, background: filtro === 'PAGA' ? "#e7fff2" : "#eee", border: "none", borderRadius: 5, padding: "4px 13px", cursor: "pointer", fontWeight: filtro === 'PAGA' ? 600 : 400 }}>Paga</button>
-        <button onClick={() => setFiltro('VENCIDA')} style={{ background: filtro === 'VENCIDA' ? "#ffe4e6" : "#eee", border: "none", borderRadius: 5, padding: "4px 13px", cursor: "pointer", fontWeight: filtro === 'VENCIDA' ? 600 : 400, color: "#b4002e" }}>Vencida</button>
+        <button onClick={() => setFiltro('TODAS')} style={{ marginLeft: 9, marginRight: 2, background: filtro === 'TODAS' ? '#e7f2ff' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'TODAS' ? 600 : 400 }}>Todas</button>
+        <button onClick={() => setFiltro('A PAGAR')} style={{ marginRight: 2, background: filtro === 'A PAGAR' ? '#fffbe7' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'A PAGAR' ? 600 : 400 }}>A Pagar</button>
+        <button onClick={() => setFiltro('PAGA')} style={{ marginRight: 2, background: filtro === 'PAGA' ? '#e7fff2' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'PAGA' ? 600 : 400 }}>Paga</button>
+        <button onClick={() => setFiltro('VENCIDA')} style={{ background: filtro === 'VENCIDA' ? '#ffe4e6' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'VENCIDA' ? 600 : 400, color: '#b4002e' }}>Vencida</button>
       </div>
       {/* Tabela */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 15, fontSize: 15 }}>
@@ -253,34 +248,37 @@ export default function ContasAPagar() {
           </tr>
         </thead>
         <tbody>
-          {contasFiltradas.length === 0 && (
+          {loading && (
+            <tr>
+              <td colSpan={7} style={{ textAlign: 'center', color: '#888', padding: 20 }}>Carregando...</td>
+            </tr>
+          )}
+          {!loading && contasFiltradas.length === 0 && (
             <tr>
               <td colSpan={7} style={{ textAlign: 'center', color: '#888', padding: 20 }}>Nenhuma conta encontrada.</td>
             </tr>
           )}
-          {contasFiltradas.map(c => (
+          {contasFiltradas.map((c) => (
             <tr key={c.id} style={getRowStyle(c.status)}>
               <td style={{ padding: 8 }}>{c.conta}</td>
               <td style={{ padding: 8 }}>{c.descricao}</td>
               <td style={{ padding: 8 }}>{Number(c.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-              <td style={{ padding: 8 }}>
-                {c.vencimento ? formatarDataBR(c.vencimento) : ''}
-              </td>
+              <td style={{ padding: 8 }}>{c.vencimento ? formatarDataBR(c.vencimento) : ''}</td>
               <td style={{ padding: 8 }}>
                 {c.dataPagamento
                   ? formatarDataBR(c.dataPagamento)
-                  : (c.status === "PAGA" ? <i style={{ color: "#b4002e" }}>Sem data</i> : '')}
+                  : c.status === 'PAGA' ? <i style={{ color: '#b4002e' }}>Sem data</i> : ''}
               </td>
               <td style={{ padding: 8 }}>
                 <select
                   value={c.status}
-                  onChange={e => c.id && atualizarStatus(c.id, e.target.value as Conta['status'])}
+                  onChange={(e) => c.id && atualizarStatus(c.id, e.target.value as Conta['status'])}
                   style={{
-                    background: "none",
-                    border: "1px solid #eee",
+                    background: 'none',
+                    border: '1px solid #eee',
                     borderRadius: 5,
-                    fontWeight: "bold",
-                    color: c.status === "VENCIDA" ? "#b4002e" : "#232323"
+                    fontWeight: 'bold',
+                    color: c.status === 'VENCIDA' ? '#b4002e' : '#232323',
                   }}
                 >
                   <option value="A PAGAR">A PAGAR</option>
@@ -289,7 +287,7 @@ export default function ContasAPagar() {
                 </select>
               </td>
               <td style={{ padding: 8 }}>
-                <button onClick={() => c.id && excluirConta(c.id)} style={{ background: "#eee", color: "#c02626", border: "none", borderRadius: 5, padding: "4px 10px", cursor: "pointer" }}>Excluir</button>
+                <button onClick={() => c.id && excluirConta(c.id)} style={{ background: '#eee', color: '#c02626', border: 'none', borderRadius: 5, padding: '4px 10px', cursor: 'pointer' }}>Excluir</button>
               </td>
             </tr>
           ))}
