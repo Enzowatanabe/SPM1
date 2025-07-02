@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "./components/Navbar"; // <-- importa o Navbar
+import Navbar from "./components/Navbar";
+import AdminPanel from "./components/AdminPanel";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({
         <div style={{ paddingTop: 56 }}>
           {children}
         </div>
+        <AdminPanel />
       </body>
     </html>
   );

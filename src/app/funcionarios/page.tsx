@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
+import { db, Funcionario as FuncionarioDB, migrarDoLocalStorage } from '@/lib/database';
 
 type Pagamento = {
   data: string;
@@ -8,20 +9,7 @@ type Pagamento = {
   observacao: string;
 };
 
-type Funcionario = {
-  id: number;
-  nome: string;
-  cargo: string;
-  email: string;
-  telefone: string;
-  cpf: string;
-  rg: string;
-  dataNascimento: string;
-  dataContratacao: string;
-  status: string;
-  observacoes: string;
-  pagamentos: Pagamento[];
-};
+type Funcionario = FuncionarioDB;
 
 export default function Funcionarios() {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
@@ -42,10 +30,21 @@ export default function Funcionarios() {
   const [pagamento, setPagamento] = useState<{ [id: number]: Pagamento }>({});
   const [registrando, setRegistrando] = useState<{ [id: number]: boolean }>({});
 
-  // Carregar funcionários do localStorage (compatível com Netlify)
+  // Carregar funcionários do IndexedDB
   useEffect(() => {
-    const dados = localStorage.getItem("funcionarios");
-    if (dados) setFuncionarios(JSON.parse(dados));
+    async function carregarFuncionarios() {
+      try {
+        // Migrar dados do localStorage se existirem
+        await migrarDoLocalStorage();
+        
+        // Carregar do IndexedDB
+        const funcionarios = await db.funcionarios.orderBy('nome').toArray();
+        setFuncionarios(funcionarios);
+      } catch (error) {
+        console.error('Erro ao carregar funcionários:', error);
+      }
+    }
+    carregarFuncionarios();
   }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {

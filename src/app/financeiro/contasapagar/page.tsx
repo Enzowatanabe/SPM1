@@ -1,16 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { db, ContaAPagar, migrarDoLocalStorage } from '@/lib/database';
 
-type Conta = {
-  id: number;
-  conta: string;
-  descricao: string;
-  valor: string;
-  vencimento: string;
-  dataPagamento: string;
-  status: 'A PAGAR' | 'PAGA' | 'VENCIDA';
-};
+type Conta = ContaAPagar;
 
 export default function ContasAPagar() {
   const [contas, setContas] = useState<Conta[]>([]);
@@ -24,10 +17,21 @@ export default function ContasAPagar() {
     status: 'A PAGAR' as 'A PAGAR' | 'PAGA' | 'VENCIDA',
   });
 
-  // Carrega contas do localStorage (compatível com Netlify)
+  // Carrega contas do IndexedDB
   useEffect(() => {
-    const salvo = localStorage.getItem('contasapagar');
-    if (salvo) setContas(JSON.parse(salvo));
+    async function carregarContas() {
+      try {
+        // Migrar dados do localStorage se existirem
+        await migrarDoLocalStorage();
+        
+        // Carregar do IndexedDB
+        const contas = await db.contasAPagar.orderBy('vencimento').toArray();
+        setContas(contas);
+      } catch (error) {
+        console.error('Erro ao carregar contas:', error);
+      }
+    }
+    carregarContas();
   }, []);
 
   // Atualiza vencidas automaticamente
@@ -40,7 +44,16 @@ export default function ContasAPagar() {
     );
     if (JSON.stringify(atualizadas) !== JSON.stringify(contas)) {
       setContas(atualizadas);
-      localStorage.setItem('contasapagar', JSON.stringify(atualizadas));
+      // Salvar no IndexedDB
+      atualizadas.forEach(async (conta) => {
+        if (conta.id && conta.status === 'VENCIDA') {
+          try {
+            await db.contasAPagar.update(conta.id, { status: 'VENCIDA' });
+          } catch (error) {
+            console.error('Erro ao atualizar conta:', error);
+          }
+        }
+      });
     }
     // eslint-disable-next-line
   }, [contas.length]);
@@ -49,7 +62,7 @@ export default function ContasAPagar() {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.conta || !form.valor || !form.vencimento) {
       alert("Preencha os campos obrigatórios!");
@@ -60,49 +73,70 @@ export default function ContasAPagar() {
       return;
     }
     const novaConta: Conta = {
-      id: Date.now(),
       conta: form.conta,
       descricao: form.descricao,
       valor: form.valor,
       vencimento: form.vencimento,
       dataPagamento: form.status === "PAGA" ? form.dataPagamento : "",
       status: form.status,
+      createdAt: new Date()
     };
-    const listaNova = [...contas, novaConta];
-    setContas(listaNova);
-    localStorage.setItem('contasapagar', JSON.stringify(listaNova));
-    setForm({
-      conta: '',
-      descricao: '',
-      valor: '',
-      vencimento: '',
-      dataPagamento: '',
-      status: 'A PAGAR'
-    });
+    
+    try {
+      const id = await db.contasAPagar.add(novaConta);
+      const contaSalva = { ...novaConta, id };
+      setContas(prev => [...prev, contaSalva]);
+      setForm({
+        conta: '',
+        descricao: '',
+        valor: '',
+        vencimento: '',
+        dataPagamento: '',
+        status: 'A PAGAR'
+      });
+    } catch (error) {
+      console.error('Erro ao salvar conta:', error);
+      alert('Erro ao salvar conta. Tente novamente.');
+    }
   }
 
-  function atualizarStatus(id: number, novo: Conta['status']) {
-    const listaNova = contas.map(c =>
-      c.id === id
-        ? {
-            ...c,
-            status: novo,
-            dataPagamento:
-              novo === 'PAGA'
-                ? c.dataPagamento || new Date().toISOString().slice(0, 10)
-                : ''
-          }
-        : c
-    );
-    setContas(listaNova);
-    localStorage.setItem('contasapagar', JSON.stringify(listaNova));
+  async function atualizarStatus(id: number, novo: Conta['status']) {
+    try {
+      await db.contasAPagar.update(id, {
+        status: novo,
+        dataPagamento: novo === 'PAGA' ? new Date().toISOString().slice(0, 10) : ''
+      });
+      
+      const listaNova = contas.map(c =>
+        c.id === id
+          ? {
+              ...c,
+              status: novo,
+              dataPagamento:
+                novo === 'PAGA'
+                  ? c.dataPagamento || new Date().toISOString().slice(0, 10)
+                  : ''
+            }
+          : c
+      );
+      setContas(listaNova);
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+      alert('Erro ao atualizar status. Tente novamente.');
+    }
   }
 
-  function excluirConta(id: number) {
+  async function excluirConta(id: number) {
     if (!window.confirm("Excluir essa conta?")) return;
-    const listaNova = contas.filter(c => c.id !== id);
-    setContas(listaNova);
-    localStorage.setItem('contasapagar', JSON.stringify(listaNova));
+    
+    try {
+      await db.contasAPagar.delete(id);
+      const listaNova = contas.filter(c => c.id !== id);
+      setContas(listaNova);
+    } catch (error) {
+      console.error('Erro ao excluir conta:', error);
+      alert('Erro ao excluir conta. Tente novamente.');
+    }
   }
 
   // Filtro
@@ -240,7 +274,7 @@ export default function ContasAPagar() {
               <td style={{ padding: 8 }}>
                 <select
                   value={c.status}
-                  onChange={e => atualizarStatus(c.id, e.target.value as Conta['status'])}
+                  onChange={e => c.id && atualizarStatus(c.id, e.target.value as Conta['status'])}
                   style={{
                     background: "none",
                     border: "1px solid #eee",
@@ -255,7 +289,7 @@ export default function ContasAPagar() {
                 </select>
               </td>
               <td style={{ padding: 8 }}>
-                <button onClick={() => excluirConta(c.id)} style={{ background: "#eee", color: "#c02626", border: "none", borderRadius: 5, padding: "4px 10px", cursor: "pointer" }}>Excluir</button>
+                <button onClick={() => c.id && excluirConta(c.id)} style={{ background: "#eee", color: "#c02626", border: "none", borderRadius: 5, padding: "4px 10px", cursor: "pointer" }}>Excluir</button>
               </td>
             </tr>
           ))}
