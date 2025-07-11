@@ -1,18 +1,14 @@
 // src/utils/gerarLancamentosDoCliente.ts
 
-export function gerarLancamentosDoCliente(cliente: any) {
+export async function gerarLancamentosDoCliente(cliente: any) {
   // Remove lançamentos antigos desse cliente antes de criar novos (usando categoria=nome)
-  let lancamentosSalvos = JSON.parse(localStorage.getItem('lancamentos') || '[]');
-  lancamentosSalvos = lancamentosSalvos.filter(
-    (l: any) => l.categoria !== cliente.nome || !l.descricao.startsWith("Sinal") && !l.descricao.startsWith("Parcela")
-  );
+  // Agora, removendo via API não implementado, apenas adiciona novos via API
 
   let novosLancamentos = [];
 
   // Sinal
   if (cliente.valorSinal && cliente.dataSinal) {
     novosLancamentos.push({
-      id: Date.now() + Math.floor(Math.random() * 10000),
       transacao: "receita",
       categoria: cliente.nome,
       descricao: "Sinal de " + cliente.nome,
@@ -29,7 +25,6 @@ export function gerarLancamentosDoCliente(cliente: any) {
     const data = cliente[`dataParcela${i}`];
     if (valor && data) {
       novosLancamentos.push({
-        id: Date.now() + i * 1000 + Math.floor(Math.random() * 1000),
         transacao: "receita",
         categoria: cliente.nome,
         descricao: `Parcela ${i} - ${cliente.nome}`,
@@ -41,6 +36,12 @@ export function gerarLancamentosDoCliente(cliente: any) {
     }
   }
 
-  const atualizados = [...lancamentosSalvos, ...novosLancamentos];
-  localStorage.setItem("lancamentos", JSON.stringify(atualizados));
+  // Salva via API
+  for (const lanc of novosLancamentos) {
+    await fetch('/api/lancamentos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lanc),
+    });
+  }
 }

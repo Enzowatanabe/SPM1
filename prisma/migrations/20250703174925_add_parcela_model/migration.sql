@@ -1,0 +1,9 @@
+-- CreateTable
+CREATE TABLE "Parcela" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "valor" TEXT NOT NULL,
+    "data" TEXT NOT NULL,
+    "clienteId" INTEGER NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Parcela_clienteId_fkey" FOREIGN KEY ("clienteId") REFERENCES "Cliente" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);

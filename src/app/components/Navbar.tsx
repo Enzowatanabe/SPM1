@@ -20,12 +20,15 @@ export default function Navbar() {
 
   // Fecha dropdown ao clicar fora
   React.useEffect(() => {
-    function handleClick() {
-      setDropdownOpen(false);
+    function handleClick(e: MouseEvent) {
+      // Só fecha se clicar fora do dropdown
+      if (!(e.target as HTMLElement).closest('.dropdown-menu') && !(e.target as HTMLElement).closest('.dropdown-btn')) {
+        setDropdownOpen(false);
+      }
     }
     if (dropdownOpen) {
-      window.addEventListener("click", handleClick);
-      return () => window.removeEventListener("click", handleClick);
+      window.addEventListener("mousedown", handleClick);
+      return () => window.removeEventListener("mousedown", handleClick);
     }
   }, [dropdownOpen]);
 
@@ -73,10 +76,9 @@ export default function Navbar() {
         <div
           style={{ position: "relative" }}
           onClick={e => { e.stopPropagation(); setDropdownOpen(dropdownOpen === 'clientes' ? false : 'clientes'); }}
-          onMouseEnter={() => setDropdownOpen('clientes')}
-          onMouseLeave={() => setDropdownOpen(false)}
         >
           <button
+            className="dropdown-btn"
             style={{
               background: pathname.startsWith('/clientes') ? "#eef6fd" : "transparent",
               color: pathname.startsWith('/clientes') ? "#3182ce" : "#232323",
@@ -97,6 +99,7 @@ export default function Navbar() {
           </button>
           {dropdownOpen === 'clientes' && (
             <div
+              className="dropdown-menu"
               style={{
                 position: "absolute",
                 top: "110%",
@@ -115,12 +118,14 @@ export default function Navbar() {
               <Link
                 href="/clientes"
                 style={{
-                  padding: "8px 18px",
+                  padding: "14px 24px",
                   color: pathname === '/clientes' ? "#3182ce" : "#232323",
                   textDecoration: "none",
                   borderRadius: 5,
                   fontWeight: pathname === '/clientes' ? 600 : 400,
                   background: pathname === '/clientes' ? "#eef6fd" : "transparent",
+                  fontSize: 16,
+                  marginBottom: 2
                 }}
                 onClick={() => setDropdownOpen(false)}
               >
@@ -129,12 +134,13 @@ export default function Navbar() {
               <Link
                 href="/clientes/cadastro"
                 style={{
-                  padding: "8px 18px",
+                  padding: "14px 24px",
                   color: pathname === '/clientes/cadastro' ? "#3182ce" : "#232323",
                   textDecoration: "none",
                   borderRadius: 5,
                   fontWeight: pathname === '/clientes/cadastro' ? 600 : 400,
                   background: pathname === '/clientes/cadastro' ? "#eef6fd" : "transparent",
+                  fontSize: 16
                 }}
                 onClick={() => setDropdownOpen(false)}
               >
@@ -149,10 +155,9 @@ export default function Navbar() {
         <div
           style={{ position: "relative" }}
           onClick={e => { e.stopPropagation(); setDropdownOpen(dropdownOpen === 'financeiro' ? false : 'financeiro'); }}
-          onMouseEnter={() => setDropdownOpen('financeiro')}
-          onMouseLeave={() => setDropdownOpen(false)}
         >
           <button
+            className="dropdown-btn"
             style={{
               background: pathname.startsWith('/financeiro') ? "#eef6fd" : "transparent",
               color: pathname.startsWith('/financeiro') ? "#3182ce" : "#232323",
@@ -173,6 +178,7 @@ export default function Navbar() {
           </button>
           {dropdownOpen === 'financeiro' && (
             <div
+              className="dropdown-menu"
               style={{
                 position: "absolute",
                 top: "110%",
@@ -191,12 +197,14 @@ export default function Navbar() {
               <Link
                 href="/financeiro"
                 style={{
-                  padding: "8px 18px",
+                  padding: "14px 24px",
                   color: pathname === '/financeiro' ? "#3182ce" : "#232323",
                   textDecoration: "none",
                   borderRadius: 5,
                   fontWeight: pathname === '/financeiro' ? 600 : 400,
                   background: pathname === '/financeiro' ? "#eef6fd" : "transparent",
+                  fontSize: 16,
+                  marginBottom: 2
                 }}
                 onClick={() => setDropdownOpen(false)}
               >
@@ -205,16 +213,33 @@ export default function Navbar() {
               <Link
                 href="/financeiro/contasapagar"
                 style={{
-                  padding: "8px 18px",
+                  padding: "14px 24px",
                   color: pathname === '/financeiro/contasapagar' ? "#3182ce" : "#232323",
                   textDecoration: "none",
                   borderRadius: 5,
                   fontWeight: pathname === '/financeiro/contasapagar' ? 600 : 400,
                   background: pathname === '/financeiro/contasapagar' ? "#eef6fd" : "transparent",
+                  fontSize: 16,
+                  marginBottom: 2
                 }}
                 onClick={() => setDropdownOpen(false)}
               >
                 Contas a Pagar
+              </Link>
+              <Link
+                href="/financeiro/lucro"
+                style={{
+                  padding: "14px 24px",
+                  color: pathname === '/financeiro/lucro' ? "#3182ce" : "#232323",
+                  textDecoration: "none",
+                  borderRadius: 5,
+                  fontWeight: pathname === '/financeiro/lucro' ? 600 : 400,
+                  background: pathname === '/financeiro/lucro' ? "#eef6fd" : "transparent",
+                  fontSize: 16
+                }}
+                onClick={() => setDropdownOpen(false)}
+              >
+                Análise de Lucro
               </Link>
             </div>
           )}

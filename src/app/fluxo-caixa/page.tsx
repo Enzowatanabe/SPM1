@@ -51,35 +51,55 @@ export default function FluxoCaixa() {
   const [forceUpdate, setForceUpdate] = useState(0);
 
   useEffect(() => {
-    const lancs: Lancamento[] = JSON.parse(localStorage.getItem("lancamentos") || "[]");
-    const contas: ContaAPagar[] = JSON.parse(localStorage.getItem("contasapagar") || "[]");
+    async function carregarDados() {
+      // Buscar lançamentos da API
+      const resLanc = await fetch('/api/lancamentos');
+      const lancs: Lancamento[] = await resLanc.json();
+      // Buscar contas a pagar da API
+      const resContas = await fetch('/api/contasapagar');
+      const contas: ContaAPagar[] = await resContas.json();
 
-    const lancsFluxo: ItemFluxo[] = lancs.map(l => ({
-      id: "L" + l.id,
-      tipo: "Lançamento",
-      transacao: l.transacao,
-      categoria: l.categoria,
-      descricao: l.descricao,
-      data: l.data,
-      valor: l.valor,
-    }));
+      const lancsFluxo: ItemFluxo[] = lancs.map(l => ({
+        id: "L" + l.id,
+        tipo: "Lançamento",
+        transacao: l.transacao,
+        categoria: l.categoria,
+        descricao: l.descricao,
+        data: l.data,
+        valor: l.valor,
+      }));
 
-    const contasFluxo: ItemFluxo[] = contas.map(c => ({
-      id: "C" + c.id,
-      tipo: "Conta a Pagar",
-      transacao: 'despesa',
-      categoria: c.conta,
-      descricao: c.descricao,
-      data: c.status === "PAGA" && c.dataPagamento ? c.dataPagamento : c.vencimento,
-      valor: Number(c.valor),
-      status: c.status,
-      contaId: c.id
-    }));
+      const contasFluxo: ItemFluxo[] = contas.map(c => ({
+        id: "C" + c.id,
+        tipo: "Conta a Pagar",
+        transacao: 'despesa',
+        categoria: c.conta,
+        descricao: c.descricao,
+        data: c.status === "PAGA" && c.dataPagamento ? c.dataPagamento : c.vencimento,
+        valor: Number(c.valor),
+        status: c.status,
+        contaId: c.id
+      }));
 
-    setItens([...lancsFluxo, ...contasFluxo].sort((a, b) => (a.data > b.data ? 1 : -1)));
+      setItens([...lancsFluxo, ...contasFluxo].sort((a, b) => (a.data > b.data ? 1 : -1)));
+    }
+    carregarDados();
   }, [forceUpdate]);
 
-  const filtrados = itens.filter(item => {
+  // Ordenar por data ASC
+  const itensOrdenados = [...itens].sort((a, b) => (a.data > b.data ? 1 : a.data < b.data ? -1 : 0));
+  // Calcular saldo acumulado para cada linha
+  let saldoAcumulado = 0;
+  const itensComSaldo = itensOrdenados.map((item) => {
+    if (item.transacao === 'receita') {
+      saldoAcumulado += item.valor;
+    } else {
+      saldoAcumulado -= item.valor;
+    }
+    return { ...item, saldoAcumulado };
+  });
+  // Aplicar filtros normalmente
+  const filtrados = itensComSaldo.filter(item => {
     if (filtroTransacao !== "todas" && item.transacao !== filtroTransacao) return false;
     if (filtroData && item.data !== filtroData) return false;
     return true;
@@ -90,6 +110,19 @@ export default function FluxoCaixa() {
     0
   );
 
+  // Calcular saldo do dia anterior + saldo do dia atual
+  const dataReferencia = filtroData || new Date().toISOString().slice(0, 10);
+  // Saldo acumulado até o dia anterior
+  const saldoAteDiaAnterior = itens
+    .filter(item => item.data < dataReferencia)
+    .reduce((acc, cur) => cur.transacao === 'receita' ? acc + cur.valor : acc - cur.valor, 0);
+  // Saldo do dia atual
+  const saldoDoDiaAtual = itens
+    .filter(item => item.data === dataReferencia)
+    .reduce((acc, cur) => cur.transacao === 'receita' ? acc + cur.valor : acc - cur.valor, 0);
+  // Saldo do dia = saldo até o dia anterior + saldo do dia atual
+  const saldoDoDia = saldoAteDiaAnterior + saldoDoDiaAtual;
+
   function marcarComoPaga(contaId: number) {
     const contas: ContaAPagar[] = JSON.parse(localStorage.getItem("contasapagar") || "[]");
     const hoje = new Date().toISOString().slice(0, 10);
@@ -99,6 +132,12 @@ export default function FluxoCaixa() {
         : c
     );
     localStorage.setItem("contasapagar", JSON.stringify(contasAtualizadas));
+    setForceUpdate(f => f + 1);
+  }
+
+  async function excluirLancamento(id: number) {
+    if (!window.confirm('Tem certeza que deseja excluir este lançamento?')) return;
+    await fetch(`/api/lancamentos/${id}`, { method: 'DELETE' });
     setForceUpdate(f => f + 1);
   }
 
@@ -117,7 +156,12 @@ export default function FluxoCaixa() {
 
   return (
     <main style={{ maxWidth: 940, margin: "40px auto", background: "#fff", borderRadius: 10, padding: 24 }}>
-      <h2 style={{ textAlign: "center", marginBottom: 18 }}>Fluxo de Caixa</h2>
+      <h2 style={{ textAlign: "center", marginBottom: 18 }}>
+        Fluxo de Caixa
+        <span style={{ marginLeft: 24, fontSize: 20, color: saldoDoDia >= 0 ? '#137a23' : '#be123c', fontWeight: 700 }}>
+          Saldo do dia: {saldoDoDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+        </span>
+      </h2>
       <div style={{ display: 'flex', gap: 16, marginBottom: 18, alignItems: 'center', flexWrap: 'wrap' }}>
         <div>
           <label style={{ fontWeight: 500, marginRight: 6 }}>Data:</label>
@@ -192,6 +236,16 @@ export default function FluxoCaixa() {
                     onMouseOut={e => e.currentTarget.style.background = "none"}
                   >
                     Marcar como paga
+                  </button>
+                )}
+                {item.tipo === "Lançamento" && (
+                  <button
+                    onClick={() => typeof item.id === 'string' && item.id.startsWith('L') && excluirLancamento(Number(item.id.slice(1)))}
+                    style={{ ...simpleBtn, color: '#be123c', marginLeft: 8 }}
+                    onMouseOver={e => e.currentTarget.style.background = "#fbe9eb"}
+                    onMouseOut={e => e.currentTarget.style.background = "none"}
+                  >
+                    Excluir
                   </button>
                 )}
               </td>

@@ -26,6 +26,7 @@ export interface Funcionario {
   observacoes?: string;
   pagamentos: any[];
   createdAt?: Date;
+  valorDia?: number; // Salário diário
 }
 
 export interface Cliente {

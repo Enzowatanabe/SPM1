@@ -17,6 +17,16 @@ export type Conta = {
 export default function ContasAPagar() {
   const [contas, setContas] = useState<Conta[]>([]);
   const [filtro, setFiltro] = useState<'TODAS' | 'A PAGAR' | 'PAGA' | 'VENCIDA'>('TODAS');
+  const [filtroTexto, setFiltroTexto] = useState('');
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [formEdit, setFormEdit] = useState({
+    conta: '',
+    descricao: '',
+    valor: '',
+    vencimento: '',
+    dataPagamento: '',
+    status: 'A PAGAR' as 'A PAGAR' | 'PAGA' | 'VENCIDA',
+  });
   const [form, setForm] = useState({
     conta: '',
     descricao: '',
@@ -32,10 +42,14 @@ export default function ContasAPagar() {
     setLoading(true);
     try {
       const res = await fetch('/api/contasapagar');
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Erro desconhecido');
+      }
       const data = await res.json();
       setContas(data);
-    } catch (error) {
-      alert('Erro ao carregar contas.');
+    } catch (error: any) {
+      alert('Erro ao carregar contas: ' + (error.message || error));
     } finally {
       setLoading(false);
     }
@@ -60,6 +74,73 @@ export default function ContasAPagar() {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
+  function handleChangeEdit(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    setFormEdit({ ...formEdit, [e.target.name]: e.target.value });
+  }
+
+  function iniciarEdicao(conta: Conta) {
+    setEditandoId(conta.id!);
+    setFormEdit({
+      conta: conta.conta,
+      descricao: conta.descricao || '',
+      valor: conta.valor,
+      vencimento: conta.vencimento,
+      dataPagamento: conta.dataPagamento || '',
+      status: conta.status,
+    });
+  }
+
+  function cancelarEdicao() {
+    setEditandoId(null);
+    setFormEdit({
+      conta: '',
+      descricao: '',
+      valor: '',
+      vencimento: '',
+      dataPagamento: '',
+      status: 'A PAGAR',
+    });
+  }
+
+  async function salvarEdicao() {
+    if (!editandoId) return;
+    
+    if (!formEdit.conta || !formEdit.valor || !formEdit.vencimento) {
+      alert('Preencha os campos obrigatórios!');
+      return;
+    }
+    if (formEdit.status === 'PAGA' && !formEdit.dataPagamento) {
+      alert('Preencha a data de pagamento!');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/contasapagar/${editandoId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conta: formEdit.conta,
+          descricao: formEdit.descricao,
+          valor: String(formEdit.valor),
+          vencimento: formEdit.vencimento,
+          dataPagamento: formEdit.status === 'PAGA' ? formEdit.dataPagamento : '',
+          status: formEdit.status,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Erro desconhecido');
+      }
+      await carregarContas();
+      cancelarEdicao();
+    } catch (error: any) {
+      alert('Erro ao salvar alterações: ' + (error.message || error));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.conta || !form.valor || !form.vencimento) {
@@ -70,10 +151,10 @@ export default function ContasAPagar() {
       alert('Preencha a data de pagamento!');
       return;
     }
-    const novaConta: Conta = {
+    const novaConta = {
       conta: form.conta,
       descricao: form.descricao,
-      valor: form.valor,
+      valor: String(form.valor),
       vencimento: form.vencimento,
       dataPagamento: form.status === 'PAGA' ? form.dataPagamento : '',
       status: form.status,
@@ -85,7 +166,10 @@ export default function ContasAPagar() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(novaConta),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Erro desconhecido');
+      }
       await carregarContas();
       setForm({
         conta: '',
@@ -95,8 +179,8 @@ export default function ContasAPagar() {
         dataPagamento: '',
         status: 'A PAGAR',
       });
-    } catch (error) {
-      alert('Erro ao salvar conta. Tente novamente.');
+    } catch (error: any) {
+      alert('Erro ao salvar conta: ' + (error.message || error));
     } finally {
       setLoading(false);
     }
@@ -105,15 +189,25 @@ export default function ContasAPagar() {
   async function atualizarStatus(id: number, novo: Conta['status']) {
     try {
       setLoading(true);
+      // Buscar a conta atual para enviar todos os campos
+      const conta = contas.find(c => c.id === id);
+      if (!conta) throw new Error('Conta não encontrada');
       const res = await fetch(`/api/contasapagar/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: novo, dataPagamento: novo === 'PAGA' ? new Date().toISOString().slice(0, 10) : '' }),
+        body: JSON.stringify({
+          ...conta,
+          status: novo,
+          dataPagamento: novo === 'PAGA' ? new Date().toISOString().slice(0, 10) : '',
+        }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Erro desconhecido');
+      }
       await carregarContas();
-    } catch (error) {
-      alert('Erro ao atualizar status. Tente novamente.');
+    } catch (error: any) {
+      alert('Erro ao atualizar status: ' + (error.message || error));
     } finally {
       setLoading(false);
     }
@@ -134,7 +228,13 @@ export default function ContasAPagar() {
   }
 
   // Filtro
-  const contasFiltradas = contas.filter((c) => (filtro === 'TODAS' ? true : c.status === filtro));
+  const contasFiltradas = contas.filter((c) => {
+    // Filtro por status
+    if (filtro !== 'TODAS' && c.status !== filtro) return false;
+    // Filtro por texto (nome da conta)
+    if (filtroTexto && !c.conta.toLowerCase().includes(filtroTexto.toLowerCase())) return false;
+    return true;
+  });
 
   // Destaques
   function getRowStyle(status: string) {
@@ -228,11 +328,46 @@ export default function ContasAPagar() {
       </form>
       {/* Filtro */}
       <div style={{ marginBottom: 13 }}>
-        <b>Filtrar por status:</b>
-        <button onClick={() => setFiltro('TODAS')} style={{ marginLeft: 9, marginRight: 2, background: filtro === 'TODAS' ? '#e7f2ff' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'TODAS' ? 600 : 400 }}>Todas</button>
-        <button onClick={() => setFiltro('A PAGAR')} style={{ marginRight: 2, background: filtro === 'A PAGAR' ? '#fffbe7' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'A PAGAR' ? 600 : 400 }}>A Pagar</button>
-        <button onClick={() => setFiltro('PAGA')} style={{ marginRight: 2, background: filtro === 'PAGA' ? '#e7fff2' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'PAGA' ? 600 : 400 }}>Paga</button>
-        <button onClick={() => setFiltro('VENCIDA')} style={{ background: filtro === 'VENCIDA' ? '#ffe4e6' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'VENCIDA' ? 600 : 400, color: '#b4002e' }}>Vencida</button>
+        <div style={{ marginBottom: 8 }}>
+          <b>Filtrar por status:</b>
+          <button onClick={() => setFiltro('TODAS')} style={{ marginLeft: 9, marginRight: 2, background: filtro === 'TODAS' ? '#e7f2ff' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'TODAS' ? 600 : 400 }}>Todas</button>
+          <button onClick={() => setFiltro('A PAGAR')} style={{ marginRight: 2, background: filtro === 'A PAGAR' ? '#fffbe7' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'A PAGAR' ? 600 : 400 }}>A Pagar</button>
+          <button onClick={() => setFiltro('PAGA')} style={{ marginRight: 2, background: filtro === 'PAGA' ? '#e7fff2' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'PAGA' ? 600 : 400 }}>Paga</button>
+          <button onClick={() => setFiltro('VENCIDA')} style={{ background: filtro === 'VENCIDA' ? '#ffe4e6' : '#eee', border: 'none', borderRadius: 5, padding: '4px 13px', cursor: 'pointer', fontWeight: filtro === 'VENCIDA' ? 600 : 400, color: '#b4002e' }}>Vencida</button>
+        </div>
+        <div>
+          <b>Pesquisar por nome da conta:</b>
+          <input
+            type="text"
+            placeholder="Digite o nome da conta..."
+            value={filtroTexto}
+            onChange={(e) => setFiltroTexto(e.target.value)}
+            style={{ 
+              marginLeft: 8, 
+              padding: '6px 12px', 
+              borderRadius: 5, 
+              border: '1px solid #ddd', 
+              minWidth: 200,
+              fontSize: 14
+            }}
+          />
+          {filtroTexto && (
+            <button 
+              onClick={() => setFiltroTexto('')}
+              style={{ 
+                marginLeft: 8, 
+                background: '#f3f4f6', 
+                border: '1px solid #d1d5db', 
+                borderRadius: 5, 
+                padding: '6px 12px', 
+                cursor: 'pointer',
+                fontSize: 14
+              }}
+            >
+              Limpar
+            </button>
+          )}
+        </div>
       </div>
       {/* Tabela */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 15, fontSize: 15 }}>
@@ -260,34 +395,177 @@ export default function ContasAPagar() {
           )}
           {contasFiltradas.map((c) => (
             <tr key={c.id} style={getRowStyle(c.status)}>
-              <td style={{ padding: 8 }}>{c.conta}</td>
-              <td style={{ padding: 8 }}>{c.descricao}</td>
-              <td style={{ padding: 8 }}>{Number(c.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-              <td style={{ padding: 8 }}>{c.vencimento ? formatarDataBR(c.vencimento) : ''}</td>
               <td style={{ padding: 8 }}>
-                {c.dataPagamento
-                  ? formatarDataBR(c.dataPagamento)
-                  : c.status === 'PAGA' ? <i style={{ color: '#b4002e' }}>Sem data</i> : ''}
+                {editandoId === c.id ? (
+                  <input
+                    name="conta"
+                    value={formEdit.conta}
+                    onChange={handleChangeEdit}
+                    style={{ padding: 4, borderRadius: 4, border: '1px solid #ddd', width: '100%' }}
+                  />
+                ) : (
+                  c.conta
+                )}
               </td>
               <td style={{ padding: 8 }}>
-                <select
-                  value={c.status}
-                  onChange={(e) => c.id && atualizarStatus(c.id, e.target.value as Conta['status'])}
-                  style={{
-                    background: 'none',
-                    border: '1px solid #eee',
-                    borderRadius: 5,
-                    fontWeight: 'bold',
-                    color: c.status === 'VENCIDA' ? '#b4002e' : '#232323',
-                  }}
-                >
-                  <option value="A PAGAR">A PAGAR</option>
-                  <option value="PAGA">PAGA</option>
-                  <option value="VENCIDA">VENCIDA</option>
-                </select>
+                {editandoId === c.id ? (
+                  <input
+                    name="descricao"
+                    value={formEdit.descricao}
+                    onChange={handleChangeEdit}
+                    style={{ padding: 4, borderRadius: 4, border: '1px solid #ddd', width: '100%' }}
+                  />
+                ) : (
+                  c.descricao
+                )}
               </td>
               <td style={{ padding: 8 }}>
-                <button onClick={() => c.id && excluirConta(c.id)} style={{ background: '#eee', color: '#c02626', border: 'none', borderRadius: 5, padding: '4px 10px', cursor: 'pointer' }}>Excluir</button>
+                {editandoId === c.id ? (
+                  <input
+                    name="valor"
+                    type="number"
+                    step="0.01"
+                    value={formEdit.valor}
+                    onChange={handleChangeEdit}
+                    style={{ padding: 4, borderRadius: 4, border: '1px solid #ddd', width: '100%' }}
+                  />
+                ) : (
+                  Number(c.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                )}
+              </td>
+              <td style={{ padding: 8 }}>
+                {editandoId === c.id ? (
+                  <input
+                    name="vencimento"
+                    type="date"
+                    value={formEdit.vencimento}
+                    onChange={handleChangeEdit}
+                    style={{ padding: 4, borderRadius: 4, border: '1px solid #ddd' }}
+                  />
+                ) : (
+                  c.vencimento ? formatarDataBR(c.vencimento) : ''
+                )}
+              </td>
+              <td style={{ padding: 8 }}>
+                {editandoId === c.id ? (
+                  formEdit.status === 'PAGA' ? (
+                    <input
+                      name="dataPagamento"
+                      type="date"
+                      value={formEdit.dataPagamento}
+                      onChange={handleChangeEdit}
+                      style={{ padding: 4, borderRadius: 4, border: '1px solid #ddd' }}
+                    />
+                  ) : (
+                    ''
+                  )
+                ) : (
+                  c.dataPagamento
+                    ? formatarDataBR(c.dataPagamento)
+                    : c.status === 'PAGA' ? <i style={{ color: '#b4002e' }}>Sem data</i> : ''
+                )}
+              </td>
+              <td style={{ padding: 8 }}>
+                {editandoId === c.id ? (
+                  <select
+                    name="status"
+                    value={formEdit.status}
+                    onChange={handleChangeEdit}
+                    style={{
+                      background: 'none',
+                      border: '1px solid #eee',
+                      borderRadius: 5,
+                      fontWeight: 'bold',
+                      color: formEdit.status === 'VENCIDA' ? '#b4002e' : '#232323',
+                    }}
+                  >
+                    <option value="A PAGAR">A PAGAR</option>
+                    <option value="PAGA">PAGA</option>
+                    <option value="VENCIDA">VENCIDA</option>
+                  </select>
+                ) : (
+                  <select
+                    value={c.status}
+                    onChange={(e) => c.id && atualizarStatus(c.id, e.target.value as Conta['status'])}
+                    style={{
+                      background: 'none',
+                      border: '1px solid #eee',
+                      borderRadius: 5,
+                      fontWeight: 'bold',
+                      color: c.status === 'VENCIDA' ? '#b4002e' : '#232323',
+                    }}
+                  >
+                    <option value="A PAGAR">A PAGAR</option>
+                    <option value="PAGA">PAGA</option>
+                    <option value="VENCIDA">VENCIDA</option>
+                  </select>
+                )}
+              </td>
+              <td style={{ padding: 8 }}>
+                {editandoId === c.id ? (
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button 
+                      onClick={salvarEdicao}
+                      disabled={loading}
+                      style={{ 
+                        background: '#10b981', 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: 5, 
+                        padding: '4px 8px', 
+                        cursor: 'pointer',
+                        fontSize: 12
+                      }}
+                    >
+                      {loading ? 'Salvando...' : 'Salvar'}
+                    </button>
+                    <button 
+                      onClick={cancelarEdicao}
+                      style={{ 
+                        background: '#6b7280', 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: 5, 
+                        padding: '4px 8px', 
+                        cursor: 'pointer',
+                        fontSize: 12
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button 
+                      onClick={() => iniciarEdicao(c)}
+                      style={{ 
+                        background: '#3b82f6', 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: 5, 
+                        padding: '4px 8px', 
+                        cursor: 'pointer',
+                        fontSize: 12
+                      }}
+                    >
+                      Editar
+                    </button>
+                    <button 
+                      onClick={() => c.id && excluirConta(c.id)} 
+                      style={{ 
+                        background: '#eee', 
+                        color: '#c02626', 
+                        border: 'none', 
+                        borderRadius: 5, 
+                        padding: '4px 8px', 
+                        cursor: 'pointer',
+                        fontSize: 12
+                      }}
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                )}
               </td>
             </tr>
           ))}

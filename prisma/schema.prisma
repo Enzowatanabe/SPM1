@@ -34,23 +34,45 @@ model Funcionario {
   telefone        String?
   cpf             String?
   rg              String?
-  dataNascimento  String?
   dataContratacao String?
   status          String   @default("Ativo")
   observacoes     String?
-  pagamentos      String   @default("[]") // JSON string
+  valorDia        Float    @default(0)
+  pagamentos      Json     @default("[]")
   createdAt       DateTime @default(now())
 }
 
 model Cliente {
-  id          Int      @id @default(autoincrement())
-  nome        String
-  email       String?
-  telefone    String?
-  cpfCnpj     String?
-  endereco    String?
-  observacoes String?
-  createdAt   DateTime @default(now())
+  id                  Int      @id @default(autoincrement())
+  nome                String
+  celular             String
+  email               String?
+  cpf                 String?
+  rg                  String?
+  enderecoEntrega     String?
+  numeroEntrega       String?
+  aptoEntrega         String?
+  bairroEntrega       String?
+  enderecoResidencial String?
+  numeroResidencial   String?
+  aptoResidencial     String?
+  bairroResidencial   String?
+  valorTotal          String?
+  valorSinal          String?
+  dataSinal           String?
+  parcelas            Int?
+  descricao           String?
+  createdAt           DateTime @default(now())
+  parcelasDetalhadas  Parcela[]
+}
+
+model Parcela {
+  id        Int      @id @default(autoincrement())
+  valor     String
+  data      String
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId Int
+  createdAt DateTime @default(now())
 }
 
 model Lancamento {

@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
-
-export async function PUT(req: NextRequest) {
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { pathname } = req.nextUrl;
-    const id = Number(pathname.split('/').pop());
+    const id = Number(params.id);
     const data = await req.json();
     const conta = await prisma.contaAPagar.update({
       where: { id },
@@ -18,10 +15,9 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { pathname } = req.nextUrl;
-    const id = Number(pathname.split('/').pop());
+    const id = Number(params.id);
     await prisma.contaAPagar.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (error) {

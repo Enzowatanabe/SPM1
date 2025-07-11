@@ -16,9 +16,11 @@ export default function CadastroCliente() {
     rg: "",
     enderecoEntrega: "",
     numeroEntrega: "",
+    aptoEntrega: "",
     bairroEntrega: "",
     enderecoResidencial: "",
     numeroResidencial: "",
+    aptoResidencial: "",
     bairroResidencial: "",
     valorTotal: "",
     valorSinal: "",
@@ -49,21 +51,45 @@ export default function CadastroCliente() {
     );
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const cliente = { ...form, parcelas };
-    const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
-    localStorage.setItem("clientes", JSON.stringify([...clientes, cliente]));
+    // Montar objeto só com os campos do Prisma
+    const cliente = {
+      nome: form.nome,
+      celular: form.celular,
+      email: form.email,
+      cpf: form.cpf,
+      rg: form.rg,
+      enderecoEntrega: form.enderecoEntrega,
+      numeroEntrega: form.numeroEntrega,
+      aptoEntrega: form.aptoEntrega,
+      bairroEntrega: form.bairroEntrega,
+      enderecoResidencial: form.enderecoResidencial,
+      numeroResidencial: form.numeroResidencial,
+      aptoResidencial: form.aptoResidencial,
+      bairroResidencial: form.bairroResidencial,
+      valorTotal: form.valorTotal,
+      valorSinal: form.valorSinal,
+      dataSinal: form.dataSinal,
+      parcelas: form.parcelas,
+      descricao: form.descricao,
+      parcelasDetalhadas: parcelas
+    };
+    // Salvar no banco via API
+    await fetch('/api/clientes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cliente)
+    });
 
     // --- LANÇAR NO FINANCEIRO ---
     // Lançar SINAL
     let novosLancamentos = [];
     if (form.valorSinal && form.dataSinal) {
       novosLancamentos.push({
-        id: Date.now(),
         transacao: 'receita',
         categoria: form.nome,
-        descricao: `Sinal - ${form.descricao}`,
+        descricao: 'Sinal',
         data: form.dataSinal,
         valor: Number(form.valorSinal),
         formaPagamento: 'pix',
@@ -75,10 +101,9 @@ export default function CadastroCliente() {
     parcelas.forEach((parcela, i) => {
       if (parcela.valor && parcela.data) {
         novosLancamentos.push({
-          id: Date.now() + (i+1),
           transacao: 'receita',
           categoria: form.nome,
-          descricao: `Parcela ${i+1} - ${form.descricao}`,
+          descricao: `Parcela ${i+1}`,
           data: parcela.data,
           valor: Number(parcela.valor),
           formaPagamento: 'pix',
@@ -87,10 +112,17 @@ export default function CadastroCliente() {
       }
     });
 
-    // Salvar no localStorage de lançamentos/financeiro
+    // Salvar lançamentos no banco via API
     if (novosLancamentos.length > 0) {
-      const lancamentosAntigos = JSON.parse(localStorage.getItem('lancamentos') || "[]");
-      localStorage.setItem('lancamentos', JSON.stringify([...lancamentosAntigos, ...novosLancamentos]));
+      await Promise.all(
+        novosLancamentos.map(lanc =>
+          fetch('/api/lancamentos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(lanc)
+          })
+        )
+      );
     }
 
     alert("Cliente cadastrado!");
@@ -102,9 +134,11 @@ export default function CadastroCliente() {
       rg: "",
       enderecoEntrega: "",
       numeroEntrega: "",
+      aptoEntrega: "",
       bairroEntrega: "",
       enderecoResidencial: "",
       numeroResidencial: "",
+      aptoResidencial: "",
       bairroResidencial: "",
       valorTotal: "",
       valorSinal: "",
@@ -125,7 +159,7 @@ export default function CadastroCliente() {
     padding: "9px 12px",
     fontSize: 16,
     background: "#fff",
-    marginBottom: 12,
+    marginBottom: 18,
     width: "100%",
     transition: "border 0.18s"
   } as React.CSSProperties;
@@ -174,7 +208,7 @@ export default function CadastroCliente() {
         {/* Endereço de Entrega */}
         <div style={box}>
           <p style={sectionTitle}>Endereço de Entrega</p>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 16, marginBottom: 0 }}>
             <div style={{ flex: 2 }}>
               <label style={label}>Endereço</label>
               <input name="enderecoEntrega" value={form.enderecoEntrega} onChange={handleChange} style={input} />
@@ -182,6 +216,10 @@ export default function CadastroCliente() {
             <div style={{ flex: 1 }}>
               <label style={label}>Número</label>
               <input name="numeroEntrega" value={form.numeroEntrega} onChange={handleChange} style={input} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={label}>Apto</label>
+              <input name="aptoEntrega" value={form.aptoEntrega} onChange={handleChange} style={input} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={label}>Bairro</label>
@@ -193,7 +231,7 @@ export default function CadastroCliente() {
         {/* Endereço Residencial */}
         <div style={box}>
           <p style={sectionTitle}>Endereço Residencial</p>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 16, marginBottom: 0 }}>
             <div style={{ flex: 2 }}>
               <label style={label}>Endereço</label>
               <input name="enderecoResidencial" value={form.enderecoResidencial} onChange={handleChange} style={input} />
@@ -201,6 +239,10 @@ export default function CadastroCliente() {
             <div style={{ flex: 1 }}>
               <label style={label}>Número</label>
               <input name="numeroResidencial" value={form.numeroResidencial} onChange={handleChange} style={input} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={label}>Apto</label>
+              <input name="aptoResidencial" value={form.aptoResidencial} onChange={handleChange} style={input} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={label}>Bairro</label>
